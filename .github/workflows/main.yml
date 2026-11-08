@@ -1,0 +1,67 @@
+name: Download and Publish Audacity Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  download-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download models
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p models
+
+          cd models
+
+          curl -fL --retry 3 \
+            "https://huggingface.co/Intel/demucs-openvino/resolve/97fc578fb57650045d40b00bc84c7d156be77547/htdemucs_v4.bin" \
+            -o htdemucs_v4.bin
+
+          curl -fL --retry 3 \
+            "https://huggingface.co/Intel/demucs-openvino/resolve/97fc578fb57650045d40b00bc84c7d156be77547/htdemucs_v4.xml" \
+            -o htdemucs_v4.xml
+
+          curl -fL --retry 3 \
+            "https://huggingface.co/Intel/deepfilternet-openvino/resolve/995706bda3da69da0825074ba7dbc8a78067e980/deepfilternet2.zip" \
+            -o deepfilternet2.zip
+
+          curl -fL --retry 3 \
+            "https://huggingface.co/Intel/deepfilternet-openvino/resolve/995706bda3da69da0825074ba7dbc8a78067e980/deepfilternet3.zip" \
+            -o deepfilternet3.zip
+
+      - name: Verify SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd models
+
+          echo "7aa84fa1f2b534bd6865a5609b8b5b028802fe761d6a09b1d30a1564f8fac6f8  htdemucs_v4.bin" | sha256sum -c -
+          echo "304e24325756089d6bb6583171dd1bea2327505e87c6cb6e010afea7463d9f0a  htdemucs_v4.xml" | sha256sum -c -
+          echo "9d10c9c77a64121587e7d94a3d4d5cfeb67e9bfd2e416d48d1f74ac725c4f66e  deepfilternet2.zip" | sha256sum -c -
+          echo "fdc74e11439ca09a106f5bd77ed24002ef4d0e02114238a271c069d06172f341  deepfilternet3.zip" | sha256sum -c -
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          gh release create "$VERSION" \
+            models/htdemucs_v4.bin \
+            models/htdemucs_v4.xml \
+            models/deepfilternet2.zip \
+            models/deepfilternet3.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Audacity OpenVINO Models $VERSION" \
+            --notes "OpenVINO models for Intel Audacity AI Plugins. Original Intel model files with SHA256 verification."
